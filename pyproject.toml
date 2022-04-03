@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "xrpl-trading-bot"
+version = "0.1.0"
+description = "A trading bot that uses the decentralized exchange of the XRP Ledger."
+authors = ["LimpidCrypto <info@limpidcrypto.de>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+xrpl-py = "^1.4.0"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^4.0.1"
+unittest = "^0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
