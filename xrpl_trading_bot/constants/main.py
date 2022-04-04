@@ -1,8 +1,10 @@
 """A collection of all constants"""
 
-from xrpl_trading_bot.wallet import XRPWallet
+from getpass import getpass
+
+from xrpl_trading_bot.wallet.main import XRPWallet
 
 WALLET = XRPWallet(
-    seed=input("Enter your seed value: "),
+    seed=getpass("Enter your seed value: "),
     sequence=0,
 )
