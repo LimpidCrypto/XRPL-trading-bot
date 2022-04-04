@@ -12,6 +12,7 @@ repos:
       - id: isort
         name: isort
         entry: poetry run isort
+        args: ["--profile", "black", "--filter-files"]
         language: system
         types: [python]
       - id: black
@@ -33,7 +34,7 @@ repos:
         types: [python]
       - id: sphinx
         name: sphinx
-        entry: poetry run sphinx-apidoc -o docs/source xrpl
+        entry: poetry run sphinx-apidoc -o docs/source xrpl_trading_bot
         language: system
         pass_filenames: false
         files: __init__
