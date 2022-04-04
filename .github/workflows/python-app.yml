@@ -33,3 +33,6 @@ jobs:
     - name: Test with unittest
       run: |
         poetry run python -m unittest discover tests
+    - name: Type-check
+      run: |
+        poetry run mypy --strict xrpl
