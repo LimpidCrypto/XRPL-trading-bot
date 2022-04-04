@@ -21,7 +21,7 @@ def get_current_account_balances(wallet: XRPWallet) -> None:
         xrp_request_async(
             requests=[
                 AccountInfo(account=wallet.classic_address),
-                AccountLines(account=wallet.classic_address)
+                AccountLines(account=wallet.classic_address),
             ]
         )
     )
@@ -62,7 +62,7 @@ def subscribe_to_account_balances(wallet: XRPWallet) -> None:
 
 def subscribe_to_order_books(
     all_order_books: Any,  # future 'AllOrderBooks' class
-    subscribe_books: List[SubscribeBook]
+    subscribe_books: List[SubscribeBook],
 ) -> None:
     """Receive all snapshots once and then receive all transactions
     that affected one order book and parse the new order books.

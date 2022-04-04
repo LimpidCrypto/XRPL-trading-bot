@@ -1,6 +1,7 @@
 """The wallet of the user."""
 
 from __future__ import annotations
+
 from typing import Dict
 
 from xrpl.wallet import Wallet

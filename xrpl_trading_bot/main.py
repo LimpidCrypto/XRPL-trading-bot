@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from threading import Thread
 
-from xrpl_trading_bot.constants import WALLET
 from xrpl_trading_bot.clients import subscribe_to_account_balances
-
+from xrpl_trading_bot.constants import WALLET
 
 if __name__ == "__main__":
     balances_subscribtion = Thread(
         target=subscribe_to_account_balances,
-        args=(WALLET, ),
+        args=(WALLET,),
     )
     balances_subscribtion.start()
 
