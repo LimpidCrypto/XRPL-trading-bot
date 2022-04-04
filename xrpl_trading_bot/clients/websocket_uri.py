@@ -3,6 +3,7 @@
 
 class FullHistoryNodes:
     """Full hisory (FH) nodes provide every existing ledger version."""
+
     XRPLF: str = "wss://xrplcluster.com/"
     """The FH node of the XRP Ledger Foundation."""
 
@@ -12,6 +13,7 @@ class FullHistoryNodes:
 
 class NonFullHistoryNodes:
     """Non full history nodes provide only a fraction of the entire blockchain."""
+
     LIMPIDCRYPTO: str = "wss://limpidcrypto.de:6005/"
     """My own non-FH node."""
 

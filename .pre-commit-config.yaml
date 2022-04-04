@@ -1,0 +1,42 @@
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  # Use our local versions of tools so that we stay in sync.
+  - repo: local
+    hooks:
+      - id: isort
+        name: isort
+        entry: poetry run isort
+        args: ["--profile", "black", "--filter-files"]
+        language: system
+        types: [python]
+      - id: black
+        name: black
+        entry: poetry run black
+        language: system
+        types: [python]
+      - id: flake8
+        name: flake8
+        entry: poetry run flake8
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy
+        args: ["--strict"]
+        language: system
+        files: xrpl_trading_bot/
+        types: [python]
+      - id: sphinx
+        name: sphinx
+        entry: poetry run sphinx-apidoc -o docs/source xrpl_trading_bot
+        language: system
+        pass_filenames: false
+        files: __init__
+        exclude: ^tests
+        types: [python]

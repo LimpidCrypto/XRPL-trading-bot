@@ -32,11 +32,7 @@ async def xrp_request_async(
         print(results)
     """
     async with AsyncWebsocketClient(url=uri) as client:
-        requests_for_gather = [
-            client.request(request) for request in requests
-        ]
-        responses = await gather(
-            *requests_for_gather
-        )
+        requests_for_gather = [client.request(request) for request in requests]
+        responses = await gather(*requests_for_gather)
 
         return list(responses)

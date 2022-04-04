@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from asyncio import run
 from unittest import TestCase
 
-from asyncio import run
 from xrpl.models.requests import Ledger
 
 from xrpl_trading_bot.clients import xrp_request_async
