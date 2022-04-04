@@ -35,4 +35,4 @@ jobs:
         poetry run python -m unittest discover tests
     - name: Type-check
       run: |
-        poetry run mypy --strict xrpl
+        poetry run mypy --strict xrpl_trading_bot
