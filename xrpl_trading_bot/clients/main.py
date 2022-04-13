@@ -38,5 +38,5 @@ async def xrp_request_async(
         return list(responses)
 
 
-def submit_transactions():
+def submit_transactions() -> None:
     pass
