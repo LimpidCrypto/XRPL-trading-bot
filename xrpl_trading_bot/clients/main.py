@@ -36,3 +36,7 @@ async def xrp_request_async(
         responses = await gather(*requests_for_gather)
 
         return list(responses)
+
+
+def submit_transactions():
+    pass
