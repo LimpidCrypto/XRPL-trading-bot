@@ -1,6 +1,7 @@
 from asyncio import run
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
+from websockets.exceptions import ConnectionClosedError
 from xrpl.clients import WebsocketClient
 from xrpl.models import AccountInfo, AccountLines, Subscribe
 from xrpl.models.requests.subscribe import SubscribeBook
@@ -8,6 +9,8 @@ from xrpl.utils import drops_to_xrp
 
 from xrpl_trading_bot.clients.main import xrp_request_async
 from xrpl_trading_bot.clients.websocket_uri import FullHistoryNodes, NonFullHistoryNodes
+from xrpl_trading_bot.txn_parser import parse_final_balances
+from xrpl_trading_bot.txn_parser.utils.types import SubscriptionRawTxnType
 from xrpl_trading_bot.wallet.main import XRPWallet
 
 
@@ -54,10 +57,23 @@ def subscribe_to_account_balances(wallet: XRPWallet) -> None:
     get_current_account_balances(wallet=wallet)
 
     with WebsocketClient(url=NonFullHistoryNodes.LIMPIDCRYPTO) as client:
-        client.send(Subscribe(accounts=[wallet.classic_address]))
-
-        for message in client:
-            _ = message  # only a placeholder
+        try:
+            client.send(Subscribe(accounts=[wallet.classic_address]))
+            for message in client:
+                if "result" not in message:
+                    txn = cast(SubscriptionRawTxnType, message)
+                    final_balances = parse_final_balances(transaction=txn)
+                    account_balances = final_balances[wallet.classic_address]
+                    for balance in account_balances:
+                        if balance["Currency"] == "XRP":
+                            wallet.balances["XRP"] = balance["Value"]
+                        else:
+                            token = f"{balance['Currency']}.{balance['Counterparty']}"
+                            wallet.balances[token] = balance["Value"]
+                else:
+                    pass
+        except ConnectionClosedError:
+            return None
 
 
 def subscribe_to_order_books(
@@ -75,7 +91,6 @@ def subscribe_to_order_books(
     """
     with WebsocketClient(url=FullHistoryNodes.XRPLF) as client:
         client.send(Subscribe(books=subscribe_books))
-
         for message in client:
             # This client should only receive a snapshot
             # of all 'subscribe_books' and then close.
@@ -83,7 +98,6 @@ def subscribe_to_order_books(
 
     with WebsocketClient(url=NonFullHistoryNodes.LIMPIDCRYPTO) as client:
         client.send(Subscribe(books=subscribe_books))
-
         for message in client:
             # This client should receive every transaction without snapshot.
             _ = message  # only a placeholder
