@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
 
 from typing_extensions import Literal, TypedDict
-
 from xrpl.constants import XRPLException
 
 CURRENCY_AMOUNT_TYPE = Union[Dict[str, str], str]

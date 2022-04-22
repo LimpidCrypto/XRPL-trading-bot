@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Union, cast
 from pydash import map_  # type: ignore
 from typing_extensions import Literal
 
-from xrpl.utils.txn_parser.utils.types import (
+from xrpl_trading_bot.txn_parser.utils.types import (
     AccountBalance,
     NormalizedFields,
     NormalizedNode,

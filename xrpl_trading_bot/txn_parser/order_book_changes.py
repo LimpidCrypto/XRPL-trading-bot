@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Union, cast
 
-from xrpl.utils.txn_parser.utils import (
+from xrpl_trading_bot.txn_parser.utils import (
     RawTxnType,
     SubscriptionRawTxnType,
     compute_order_book_changes,
