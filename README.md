@@ -1,44 +1,25 @@
 # XRPL-trading-bot
-A trading bot that uses the decentralized exchange of the XRP Ledger
+A trading bot that uses the decentralized exchange of the XRP Ledger.
 
-### Project in active development!
+## Basics:
+soon
 
-## TODOS:
-#### Clients
-- [x] Async rippled API requests
-- ##### Methods
-  - [ ] Subscribe to balance changes
-  - [ ] Subscribe to order books
-  - [ ] Submit transactions
+## Trading types:
 
-#### Order books
-- [ ] Final order book parser
-- [ ] Identify all possible order books based on the accounts currencies
-- [ ] Identify liquid and illiquid order books
+### Arbitrage Trading
+The arbitrage trading bot takes advantage of the price differences in different liquid order books to make profit.
+##### Example
+| Basic Spatial Arbitrage      | Triangular Arbitrage         |
+| ---------------------------- | ---------------------------- |
+| 1. Step: USD.*r1* > BTC.*r1* | 1. Step: USD.*r1* > BTC.*r1* |
+| 2. Step: BTC.*r2* > USD.*r2* | 2. Step: BTC.*r2* > ETH.*r1* |
+|                              | 3. Step: ETH.*r2* > USD.*r2* |
 
-#### Arbitrage trading
+### Market Maker
+Place a buy and a sell order on the tip of a illiquid order book. The spread the two orders has to be big enough to cover the potential [transfer fees](https://xrpl.org/transfer-fees.html#transfer-fees). The market maker bot only trades illiquid order books, where %[^2] of the orders have been consumed in the last 2 weeks.
+##### Example:
+The order books most expensive bid order has a price of 50 $ and the cheapest ask order price is 52 $, so the spread is 3.85 %[^1].
+<br>The bot then calculates what prices it needs to place the orders at to cover the transfer fees and still be profitable while minimize the current spread of 3.85 %. It aims to provide a spread of 0.5 %. If one or both orders are not fulfilled after a week the orders will get canceled automatically.
 
-- [ ] Identify all possible trading paths[^1] based on liquid order books
-  | Basic Spatial Arbitrage    | Triangular Arbitrage       |
-  | -------------------------- | -------------------------- |
-  | 1. PS: USD.*r1* > BTC.*r1* | 1. PS: USD.*r1* > BTC.*r1* |
-  | 2. PS: BTC.*r2* > USD.*r2* | 2. PS: BTC.*r2* > ETH.*r1* |
-  |                            | 3. PS: ETH.*r2* > USD.*r2* |
-- [ ] Adjust values
-  - The lowest value is the value to calculate every other value from
-  (also take account balance in account)
-- [ ] Calculate profit after fees
-
-#### Market maker
-- [ ] Identify exchange rates of buy and sell offers based on the spread of the illiquid order books after fees
-- [ ] Calculate values based on accounts balance and order book depth
-- [ ] Calculate profit after fees
-
-#### Wallet
-- [ ] Wallet creation by seed ***via input***
-- [ ] Signing
-- [ ] Make trading paths identifiable by a random memo
-- [ ] Tangem integration (not in near future)
-
-
-[^1]: Trading paths devided in path steps (PS)
+[^1]: (52 $ - 50 $) / 52 $ * 100
+[^2]: not determined yet
