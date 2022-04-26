@@ -9,6 +9,7 @@ from typing_extensions import Literal, TypedDict
 from xrpl.constants import XRPLException
 
 CURRENCY_AMOUNT_TYPE = Union[Dict[str, str], str]
+ORDER_BOOK_SIDE_TYPE = List[Dict[str, Union[str, int, Dict[str, str]]]]
 
 
 class MetaDataType(TypedDict):

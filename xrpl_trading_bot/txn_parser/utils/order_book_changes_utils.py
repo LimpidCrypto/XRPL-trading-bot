@@ -5,16 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from pydash import filter_, group_by, map_  # type: ignore
 from typing_extensions import Literal
-from xrpl.utils.xrp_conversions import drops_to_xrp
+from xrpl.utils.xrp_conversions import XRPRangeException, drops_to_xrp
 
 from xrpl_trading_bot.txn_parser.utils.types import (
     CURRENCY_AMOUNT_TYPE,
+    ORDER_BOOK_SIDE_TYPE,
     AccountBalance,
     NormalizedNode,
+    RawTxnType,
+    SubscriptionRawTxnType,
 )
 
 LFS_SELL = 0x00020000
@@ -274,16 +277,16 @@ def _get_expiration_time(node: NormalizedNode) -> Optional[str]:
     )
 
 
-def _remove_undefined(order: OrderChange) -> OrderChange:
+def _remove_undefined(
+    order: Union[OrderChange, NormalizedOffer]
+) -> Union[OrderChange, NormalizedOffer]:
     """Remove all attributes that are 'None'.
 
     Args:
-        order (OrderChange):
-            Order change.
+        Order change or normalized offer.
 
     Returns:
-        OrderChange:
-            Cleaned up OrderChange object.
+        Cleaned up OrderChange object.
     """
     order_dict = order.__dict__.copy()
 
@@ -409,3 +412,368 @@ def compute_order_book_changes(
     )
 
     return filter_nodes  # type: ignore
+
+
+@dataclass
+class NormalizedOffer:
+    diff_type: Literal["CreatedNode", "ModifiedNode", "DeletedNode"]
+    identifiers: Tuple[str, str]
+    Account: str
+    BookDirectory: str
+    BookNode: str
+    Flags: int
+    OwnerNode: str
+    PreviousTxnID: str
+    PreviousTxnLgrSeq: int
+    Sequence: int
+    TakerGets: CURRENCY_AMOUNT_TYPE
+    TakerPays: CURRENCY_AMOUNT_TYPE
+    index: str
+    quality: str
+    LedgerEntryType: str = "Offer"
+    owner_funds: Optional[str] = None
+    taker_gets_funded: Optional[CURRENCY_AMOUNT_TYPE] = None
+    taker_pays_funded: Optional[CURRENCY_AMOUNT_TYPE] = None
+
+
+def _format_drops_to_xrp(amount: CURRENCY_AMOUNT_TYPE):
+    if not isinstance(amount, dict):
+        try:
+            return str(drops_to_xrp(drops=amount))
+        except XRPRangeException:
+            assert isinstance(amount, str)
+            return amount
+    else:
+        return amount
+
+
+def _derive_field(node, field_name: str, to_xrp: bool = False):
+    if "NewFields" in node[list(node.keys())[0]]:
+        try:
+            field = node[list(node.keys())[0]]["NewFields"][field_name]
+            if to_xrp:
+                field = _format_drops_to_xrp(amount=field)
+            return field
+        except KeyError:
+            return "0"
+
+    field = node[list(node.keys())[0]]["FinalFields"][field_name]
+    if to_xrp:
+        field = _format_drops_to_xrp(amount=field)
+    return field
+
+
+def _format_quality(quality: str):
+    if "E" in quality:
+        num, off = quality.split("E")
+        i, d = str(float(num)).split(".")
+        if float(off) < 0:
+            ld = len(d)
+            lenght = ld + abs(float(off))
+            f = "f'{{{}:.{}f}}'".format(float(quality), int(lenght))
+            f = str(eval(f))
+            return f.rstrip("0")
+
+    return quality
+
+
+def _derive_quality(
+    taker_gets: CURRENCY_AMOUNT_TYPE,
+    taker_pays: CURRENCY_AMOUNT_TYPE,
+    pair: str,
+):
+    possible_base = (
+        f"{taker_pays['currency']}.{taker_pays['issuer']}"
+        if (isinstance(taker_pays, dict))
+        else "XRP"
+    )
+    possible_counter = (
+        f"{taker_gets['currency']}.{taker_gets['issuer']}"
+        if (isinstance(taker_gets, dict))
+        else "XRP"
+    )
+    possible_currency_pair = f"{possible_base}/{possible_counter}"
+
+    taker_gets_value = (
+        taker_gets["value"] if (isinstance(taker_gets, dict)) else taker_gets
+    )
+    taker_pays_value = (
+        taker_pays["value"] if (isinstance(taker_pays, dict)) else taker_pays
+    )
+
+    if taker_gets_value == "0" or taker_pays_value == "0":
+        return "0"
+
+    quality = Decimal(taker_gets_value) / Decimal(taker_pays_value)
+    if possible_currency_pair != pair:
+        return _format_quality("{:.12}".format(1 / quality))
+
+    return _format_quality("{:.12}".format(quality))
+
+
+def _derive_unfunded_amounts(
+    owner_funds: str, quality: str, taker_gets: CURRENCY_AMOUNT_TYPE, to_xrp: bool
+):
+    taker_gets_value = (
+        taker_gets["value"] if (isinstance(taker_gets, dict)) else taker_gets
+    )
+    if Decimal(taker_gets_value) > Decimal(owner_funds):
+        taker_gets_funded = owner_funds
+        taker_pays_funded = Decimal(owner_funds) * Decimal(quality)
+        return taker_gets_funded, "{:.12}".format(taker_pays_funded)
+    return (None, None)
+
+
+def _derive_identifiers(
+    offer: Dict[str, Any],
+    diff_type: Literal["CreatedNode", "ModifiedNode", "DeletedNode"],
+):
+    if diff_type == "ModifiedNode":
+        return (
+            offer["ModifiedNode"]["PreviousTxnID"],
+            offer["ModifiedNode"]["PreviousTxnLgrSeq"],
+        )
+    elif diff_type == "DeletedNode":
+        return (
+            offer["DeletedNode"]["FinalFields"]["PreviousTxnID"],
+            offer["DeletedNode"]["FinalFields"]["PreviousTxnLgrSeq"],
+        )
+    else:
+        return None, None
+
+
+def normalize_offer(
+    offer,
+    new_prev_txn_id: str,
+    new_prev_txn_lgr_seq: str,
+    pair: str,
+    to_xrp: bool,
+    owner_funds: Optional[str] = None,
+):
+    diff_type = list(offer.keys())[0]
+    taker_gets = _derive_field(node=offer, field_name="TakerGets", to_xrp=to_xrp)
+    taker_pays = _derive_field(node=offer, field_name="TakerPays", to_xrp=to_xrp)
+    quality = str(
+        _derive_quality(
+            taker_gets=taker_gets,
+            taker_pays=taker_pays,
+            pair=pair,
+        )
+    )
+    taker_gets_funded, taker_pays_funded = (
+        _derive_unfunded_amounts(
+            owner_funds=owner_funds,
+            quality=quality,
+            taker_gets=taker_gets,
+            to_xrp=to_xrp,
+        )
+        if owner_funds is not None
+        else (None, None)
+    )
+    return NormalizedOffer(
+        diff_type=list(offer.keys())[0],
+        identifiers=_derive_identifiers(offer=offer, diff_type=diff_type),
+        Account=_derive_field(node=offer, field_name="Account"),
+        BookDirectory=_derive_field(node=offer, field_name="BookDirectory"),
+        Flags=_derive_field(node=offer, field_name="Flags"),
+        PreviousTxnID=new_prev_txn_id,
+        PreviousTxnLgrSeq=new_prev_txn_lgr_seq,
+        Sequence=_derive_field(node=offer, field_name="Sequence"),
+        TakerGets=taker_gets,
+        TakerPays=taker_pays,
+        index=offer[list(offer.keys())[0]]["LedgerIndex"],
+        quality=quality,
+        BookNode=_derive_field(node=offer, field_name="BookNode"),
+        OwnerNode=_derive_field(node=offer, field_name="OwnerNode"),
+        owner_funds=owner_funds,
+        taker_gets_funded=taker_gets_funded,
+        taker_pays_funded=taker_pays_funded,
+    )
+
+
+def normalize_offers(
+    transaction: Union[RawTxnType, SubscriptionRawTxnType],
+    currency_pair: str,
+    to_xrp: bool,
+):
+    hash = transaction["hash"]
+    ledger_index = transaction["ledger_index"]
+    affected_nodes = transaction["meta"]["AffectedNodes"]
+    offers = filter_(
+        affected_nodes,
+        lambda node: node[list(node.keys())[0]]["LedgerEntryType"] == "Offer",
+    )
+    return [
+        normalize_offer(
+            offer=offer,
+            new_prev_txn_id=hash,
+            new_prev_txn_lgr_seq=ledger_index,
+            pair=currency_pair,
+            to_xrp=to_xrp,
+            owner_funds=transaction["owner_funds"]
+            if "owner_funds" in transaction
+            else None,
+        )
+        for offer in offers
+    ]
+
+
+def _derive_currency_pair(asks: list, bids: list) -> str:
+    if bids:
+        bid = bids[0]
+        base = (
+            f"{bid['TakerPays']['currency']}.{bid['TakerPays']['issuer']}"
+            if (isinstance(bid["TakerPays"], dict))
+            else "XRP"
+        )
+        counter = (
+            f"{bid['TakerGets']['currency']}.{bid['TakerGets']['issuer']}"
+            if (isinstance(bid["TakerGets"], dict))
+            else "XRP"
+        )
+        return f"{base}/{counter}"
+    elif asks:
+        ask = asks[0]
+        base = (
+            f"{ask['TakerGets']['currency']}.{ask['TakerGets']['issuer']}"
+            if (isinstance(ask["TakerGets"], dict))
+            else "XRP"
+        )
+        counter = (
+            f"{ask['TakerPays']['currency']}.{ask['TakerPays']['issuer']}"
+            if (isinstance(ask["TakerPays"], dict))
+            else "XRP"
+        )
+        return f"{base}/{counter}"
+    else:
+        raise "Cannot derive currency pair because order book is empty."
+
+
+def _parse_offer_status_for_final_order_book(
+    offer: NormalizedOffer,
+) -> Literal["created", "partially-filled", "filled", "cancelled"]:
+    if offer.diff_type == "CreatedNode":
+        return "created"
+    elif offer.diff_type == "ModifiedNode":
+        taker_gets_value = Decimal(
+            value=offer.TakerGets["value"]
+            if isinstance(offer.TakerGets, dict)
+            else offer.TakerGets
+        )
+        if taker_gets_value > 0:
+            return "partially-filled"
+        else:
+            return "filled"
+    else:  # DeletedNode
+        return "cancelled"
+
+
+def _prepare_offer(offer: NormalizedOffer):
+    offer.__delattr__("diff_type")
+    offer.__delattr__("identifiers")
+
+    offer = _remove_undefined(order=offer)
+
+    return offer.__dict__
+
+
+def _parse_final_order_book_side(
+    side: ORDER_BOOK_SIDE_TYPE,
+    offer: NormalizedOffer,
+    status: Literal["created", "partially-filled", "filled", "cancelled"],
+):
+    if status == "created":
+        offer = _prepare_offer(offer=offer)
+        side.append(offer)
+        new_exchange_rate = None
+    elif status == "partially-filled":
+        prev_txn_id, prev_txn_lgr_seq = offer.identifiers
+        side_copy = side
+        for num, side_offer in enumerate(side_copy):
+            if (
+                side_offer["PreviousTxnID"] == prev_txn_id
+                and side_offer["PreviousTxnLgrSeq"] == prev_txn_lgr_seq
+            ):
+                side[num] = offer
+                new_exchange_rate = offer.quality
+    else:  # cancelled or filled
+        prev_txn_id, prev_txn_lgr_seq = offer.identifiers
+        side_copy = side
+        for num, side_offer in enumerate(side_copy):
+            if (
+                side_offer["PreviousTxnID"] == prev_txn_id
+                and side_offer["PreviousTxnLgrSeq"] == prev_txn_lgr_seq
+            ):
+                _ = side.pop(num)
+                if status == "filled":
+                    new_exchange_rate = offer.quality
+                else:  # cancelled
+                    new_exchange_rate = None
+    return side, new_exchange_rate
+
+
+def _parse_final_order_book(
+    asks: ORDER_BOOK_SIDE_TYPE,
+    bids: ORDER_BOOK_SIDE_TYPE,
+    offer: NormalizedOffer,
+    status: Literal["created", "partially-filled", "filled", "cancelled"],
+    currency_pair: str,
+) -> Optional[Tuple[ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE]]:
+    base_currency = (
+        f"{offer.TakerPays['currency']}.{offer.TakerPays['issuer']}"
+        if (isinstance(offer.TakerPays, dict))
+        else "XRP"
+    )
+    counter_currency = (
+        f"{offer.TakerGets['currency']}.{offer.TakerGets['issuer']}"
+        if (isinstance(offer.TakerGets, dict))
+        else "XRP"
+    )
+    offer_currency_pair = f"{base_currency}/{counter_currency}"
+
+    if base_currency in currency_pair and counter_currency in currency_pair:
+        # if flipped currency pair
+        if currency_pair != offer_currency_pair:
+            asks, new_exchange_rate = _parse_final_order_book_side(
+                side=asks, offer=offer, status=status
+            )
+        else:  # matching currency pair
+            bids, new_exchange_rate = _parse_final_order_book_side(
+                side=bids, offer=offer, status=status
+            )
+        return asks, bids, new_exchange_rate
+    else:
+        # the offer does not affect the given order book
+        return asks, bids, new_exchange_rate
+
+
+def compute_final_order_book(
+    asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE, transaction, to_xrp: bool
+):
+    pair = _derive_currency_pair(asks=asks, bids=bids)
+    normalized_offers = normalize_offers(
+        transaction=transaction, currency_pair=pair, to_xrp=to_xrp
+    )
+    for offer in normalized_offers:
+        offer_status = _parse_offer_status_for_final_order_book(offer=offer)
+        asks, bids, new_exchange_rate = _parse_final_order_book(
+            asks=asks, bids=bids, offer=offer, status=offer_status, currency_pair=pair
+        )
+    for ask in asks:
+        if to_xrp:
+            ask["TakerGets"] = _format_drops_to_xrp(amount=ask["TakerGets"])
+            ask["TakerPays"] = _format_drops_to_xrp(amount=ask["TakerPays"])
+        ask["quality"] = _derive_quality(
+            taker_gets=ask["TakerGets"], taker_pays=ask["TakerPays"], pair=pair
+        )
+    for bid in bids:
+        if to_xrp:
+            bid["TakerGets"] = _format_drops_to_xrp(amount=bid["TakerGets"])
+            bid["TakerPays"] = _format_drops_to_xrp(amount=bid["TakerPays"])
+        bid["quality"] = _derive_quality(
+            taker_gets=bid["TakerGets"], taker_pays=bid["TakerPays"], pair=pair
+        )
+    return (
+        list(sorted(asks, key=lambda ask: Decimal(ask["quality"]), reverse=False)),
+        list(sorted(bids, key=lambda bid: Decimal(bid["quality"]), reverse=True)),
+    )

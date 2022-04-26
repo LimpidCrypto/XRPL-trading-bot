@@ -12,6 +12,10 @@ from xrpl_trading_bot.txn_parser.utils import (
     normalize_transaction,
     validate_transaction_fields,
 )
+from xrpl_trading_bot.txn_parser.utils.order_book_changes_utils import (
+    compute_final_order_book,
+)
+from xrpl_trading_bot.txn_parser.utils.types import ORDER_BOOK_SIDE_TYPE
 
 
 def parse_order_book_changes(
@@ -42,3 +46,19 @@ def parse_order_book_changes(
         result = {}
 
     return result
+
+
+def parse_final_order_book(
+    asks: ORDER_BOOK_SIDE_TYPE,
+    bids: ORDER_BOOK_SIDE_TYPE,
+    transaction: Union[RawTxnType, SubscriptionRawTxnType],
+    to_xrp: bool = False,
+):
+    validate_transaction_fields(transaction_data=transaction)
+    if "transaction" in transaction:
+        transaction = cast(SubscriptionRawTxnType, transaction)
+        transaction = normalize_transaction(transaction_data=transaction)
+
+    return compute_final_order_book(
+        asks=asks, bids=bids, transaction=transaction, to_xrp=to_xrp
+    )
