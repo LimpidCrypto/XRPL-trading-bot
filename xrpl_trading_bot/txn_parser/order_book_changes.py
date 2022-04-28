@@ -58,7 +58,7 @@ def parse_final_order_book(
     if "transaction" in transaction:
         transaction = cast(SubscriptionRawTxnType, transaction)
         transaction = normalize_transaction(transaction_data=transaction)
-
-    return compute_final_order_book(
+    asks, bids, ex_rate, spread = compute_final_order_book(
         asks=asks, bids=bids, transaction=transaction, to_xrp=to_xrp
     )
+    return {"asks": asks, "bids": bids, "exchange_rate": ex_rate, "spread": spread}
