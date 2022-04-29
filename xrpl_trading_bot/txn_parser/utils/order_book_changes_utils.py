@@ -638,7 +638,7 @@ def _normalize_offer(
             Defaults to None.
 
     Returns:
-        NormalizedOffer: The offer in a standard format.
+        The offer in a standard format.
     """
     diff_type = cast(
         Literal["CreatedNode", "ModifiedNode", "DeletedNode"], list(offer.keys())[0]
