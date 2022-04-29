@@ -926,7 +926,9 @@ def compute_final_order_book(
     bids: ORDER_BOOK_SIDE_TYPE,
     transaction: RawTxnType,
     to_xrp: bool,
-) -> Tuple[ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, Optional[str], Optional[str]]:
+) -> Tuple[
+    ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, str, Optional[str], Optional[str]
+]:
     """
     Compute the new order book.
 
@@ -1001,4 +1003,4 @@ def compute_final_order_book(
         quoted_spread = _calculate_spread(
             tip_ask=sorted_asks[0], tip_bid=sorted_bids[0]
         )
-    return (sorted_asks, sorted_bids, exchange_rate, quoted_spread)
+    return (sorted_asks, sorted_bids, pair, exchange_rate, quoted_spread)
