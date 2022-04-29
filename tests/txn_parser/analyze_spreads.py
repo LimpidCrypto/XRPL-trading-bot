@@ -1,5 +1,5 @@
-from decimal import Decimal
 import json
+from decimal import Decimal
 
 with open("tests/txn_parser/spreads.json", "r") as infile:
     spreads = json.load(infile)

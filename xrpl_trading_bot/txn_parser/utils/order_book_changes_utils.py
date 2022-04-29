@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from pydash import filter_, group_by, map_  # type: ignore
 from typing_extensions import Literal
+from xrpl import XRPLException
 from xrpl.utils.xrp_conversions import XRPRangeException, drops_to_xrp
 
 from xrpl_trading_bot.txn_parser.utils.types import (
@@ -283,10 +284,10 @@ def _remove_undefined(
     """Remove all attributes that are 'None'.
 
     Args:
-        Order change or normalized offer.
+        order: Order change or normalized offer.
 
     Returns:
-        Cleaned up OrderChange object.
+        Cleaned up object.
     """
     order_dict = order.__dict__.copy()
 
@@ -346,7 +347,9 @@ def _convert_order_change(order: OrderChange) -> OrderChange:
     order.total_received = quantity
     order.total_paid = total_price
 
-    return _remove_undefined(order=order)
+    cleaned_order = _remove_undefined(order=order)
+    assert isinstance(cleaned_order, OrderChange)
+    return cleaned_order
 
 
 def _parse_order_change(
@@ -416,8 +419,8 @@ def compute_order_book_changes(
 
 @dataclass
 class NormalizedOffer:
-    diff_type: Literal["CreatedNode", "ModifiedNode", "DeletedNode"]
-    identifiers: Tuple[str, str]
+    diff_type: str
+    identifiers: Union[Tuple[str, str], Tuple[None, None]]
     Account: str
     BookDirectory: str
     BookNode: str
@@ -436,7 +439,9 @@ class NormalizedOffer:
     taker_pays_funded: Optional[CURRENCY_AMOUNT_TYPE] = None
 
 
-def _format_drops_to_xrp(amount: CURRENCY_AMOUNT_TYPE) -> CURRENCY_AMOUNT_TYPE:
+def _format_drops_to_xrp(
+    amount: Optional[CURRENCY_AMOUNT_TYPE],
+) -> Optional[CURRENCY_AMOUNT_TYPE]:
     """
     Takes a currency amount, derives its value and tries to format drops to XRP
     if needed.
@@ -447,7 +452,7 @@ def _format_drops_to_xrp(amount: CURRENCY_AMOUNT_TYPE) -> CURRENCY_AMOUNT_TYPE:
     Returns:
         The adjusted currency amount
     """
-    if not isinstance(amount, dict):
+    if not isinstance(amount, dict) and amount is not None:
         try:
             return str(drops_to_xrp(drops=amount))
         except XRPRangeException:
@@ -610,9 +615,12 @@ def _derive_identifiers(
 
 
 def _normalize_offer(
-    offer,
+    offer: Dict[
+        str,
+        Dict[str, Union[str, int, Dict[str, Union[str, int, Dict[str, str]]]]],
+    ],
     new_prev_txn_id: str,
-    new_prev_txn_lgr_seq: str,
+    new_prev_txn_lgr_seq: int,
     pair: str,
     to_xrp: bool,
     owner_funds: Optional[str] = None,
@@ -621,17 +629,21 @@ def _normalize_offer(
     Normalizes an offer object.
 
     Args:
-        offer: _description_
-        new_prev_txn_id: _description_
-        new_prev_txn_lgr_seq: _description_
-        pair: _description_
-        to_xrp: _description_
-        owner_funds: _description_. Defaults to None.
+        offer: Offer node.
+        new_prev_txn_id: The transactions transaction hash
+        new_prev_txn_lgr_seq: The ledger sequence the transcation was included in.
+        pair: Currency pair.
+        to_xrp: If currency amount should be converted from drops to XRP.
+        owner_funds: The TakerGets amount that the account actually holds.
+            Defaults to None.
 
     Returns:
-        NormalizedOffer: _description_
+        NormalizedOffer: The offer in a standard format.
     """
-    diff_type = list(offer.keys())[0]
+    diff_type = cast(
+        Literal["CreatedNode", "ModifiedNode", "DeletedNode"], list(offer.keys())[0]
+    )
+    assert diff_type in ["CreatedNode", "ModifiedNode", "DeletedNode"]
     taker_gets = _derive_field(node=offer, field_name="TakerGets", to_xrp=to_xrp)
     taker_pays = _derive_field(node=offer, field_name="TakerPays", to_xrp=to_xrp)
     quality = str(
@@ -642,7 +654,7 @@ def _normalize_offer(
         )
     )
     if to_xrp and owner_funds is not None:
-        owner_funds = _format_drops_to_xrp(amount=owner_funds)
+        owner_funds = _format_drops_to_xrp(amount=owner_funds)  # type: ignore
     taker_gets_funded, taker_pays_funded = (
         _derive_unfunded_amounts(
             owner_funds=owner_funds, quality=quality, taker_gets=taker_gets
@@ -651,7 +663,7 @@ def _normalize_offer(
         else (None, None)
     )
     return NormalizedOffer(
-        diff_type=list(offer.keys())[0],
+        diff_type=diff_type,
         identifiers=_derive_identifiers(offer=offer, diff_type=diff_type),
         Account=_derive_field(node=offer, field_name="Account"),
         BookDirectory=_derive_field(node=offer, field_name="BookDirectory"),
@@ -661,7 +673,7 @@ def _normalize_offer(
         Sequence=_derive_field(node=offer, field_name="Sequence"),
         TakerGets=taker_gets,
         TakerPays=taker_pays,
-        index=offer[list(offer.keys())[0]]["LedgerIndex"],
+        index=cast(str, offer[diff_type]["LedgerIndex"]),
         quality=quality,
         BookNode=_derive_field(node=offer, field_name="BookNode"),
         OwnerNode=_derive_field(node=offer, field_name="OwnerNode"),
@@ -675,7 +687,18 @@ def _normalize_offers(
     transaction: Union[RawTxnType, SubscriptionRawTxnType],
     currency_pair: str,
     to_xrp: bool,
-):
+) -> List[NormalizedOffer]:
+    """
+    Normalizes all offer objects the transaction has affected.
+
+    Args:
+        transaction: The raw transaction.
+        currency_pair: Currency pair.
+        to_xrp: If currency amount should be converted from drops to XRP.
+
+    Returns:
+        A list of offer objects in a standard format.
+    """
     hash = transaction["hash"]
     ledger_index = transaction["ledger_index"]
     affected_nodes = transaction["meta"]["AffectedNodes"]
@@ -698,7 +721,19 @@ def _normalize_offers(
     ]
 
 
-def _derive_currency_pair(asks: list, bids: list) -> str:
+def _derive_currency_pair(
+    asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE
+) -> str:
+    """
+    Derives the currency pair from an order book.
+
+    Args:
+        asks: Ask side of an order book.
+        bids: Bid side of an order book.
+
+    Returns:
+        The order books currency pair.
+    """
     if bids:
         bid = bids[0]
         base = (
@@ -726,12 +761,18 @@ def _derive_currency_pair(asks: list, bids: list) -> str:
         )
         return f"{base}/{counter}"
     else:
-        raise "Cannot derive currency pair because order book is empty."
+        raise XRPLException("Cannot derive currency pair because order book is empty.")
 
 
-def _parse_offer_status_for_final_order_book(
+def _derive_offer_status_for_final_order_book(
     offer: NormalizedOffer,
 ) -> Literal["created", "partially-filled", "filled", "cancelled"]:
+    """
+    Derive the offers status.
+
+    Returns:
+        The offer status.
+    """
     if offer.diff_type == "CreatedNode":
         return "created"
     elif offer.diff_type == "ModifiedNode":
@@ -748,10 +789,19 @@ def _parse_offer_status_for_final_order_book(
         return "cancelled"
 
 
-def _prepare_offer(offer: NormalizedOffer):
+def _prepare_offer(offer: NormalizedOffer) -> Dict[str, Any]:
+    """
+    Prepares the offer before adding it to the order book.
+
+    Args:
+        offer: The offer.
+
+    Returns:
+        The offer object as dictionary.
+    """
     offer.__delattr__("diff_type")
     offer.__delattr__("identifiers")
-    offer = _remove_undefined(order=offer)
+    offer = cast(NormalizedOffer, _remove_undefined(order=offer))
     return offer.__dict__
 
 
@@ -759,11 +809,21 @@ def _parse_final_order_book_side(
     side: ORDER_BOOK_SIDE_TYPE,
     offer: NormalizedOffer,
     status: Literal["created", "partially-filled", "filled", "cancelled"],
-):
+) -> Tuple[ORDER_BOOK_SIDE_TYPE, Optional[str]]:
+    """
+    Parses the new order book side.
+
+    Args:
+        side: Ask or Bid
+        offer: Normalized offer object.
+        status: The offers status.
+
+    Returns:
+        The new order book side and the exchange rate if an offer was modified.
+    """
     new_exchange_rate = None
     if status == "created":
-        offer = _prepare_offer(offer=offer)
-        side.append(offer)
+        side.append(_prepare_offer(offer=offer))
         new_exchange_rate = None
         return side, new_exchange_rate
     if status == "partially-filled":
@@ -798,7 +858,20 @@ def _parse_final_order_book(
     offer: NormalizedOffer,
     status: Literal["created", "partially-filled", "filled", "cancelled"],
     currency_pair: str,
-):
+) -> Tuple[ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, Optional[str]]:
+    """
+    Parses the new order book after the transaction affected it.
+
+    Args:
+        asks: Ask side.
+        bids: Bid side.
+        offer: Normalized offer object.
+        status: The offers status.
+        currency_pair: Currency pair.
+
+    Returns:
+        The new order book and the exchange rate if an offer was modified.
+    """
     base_currency = (
         f"{offer.TakerPays['currency']}.{offer.TakerPays['issuer']}"
         if (isinstance(offer.TakerPays, dict))
@@ -810,6 +883,7 @@ def _parse_final_order_book(
         else "XRP"
     )
     offer_currency_pair = f"{base_currency}/{counter_currency}"
+    new_exchange_rate = None
     if base_currency in currency_pair and counter_currency in currency_pair:
         # if flipped currency pair
         if currency_pair != offer_currency_pair:
@@ -822,16 +896,29 @@ def _parse_final_order_book(
             )
         return asks, bids, new_exchange_rate
     # the offer does not affect the given order book
-    return asks, bids, None
+    return asks, bids, new_exchange_rate
 
 
-def _calculate_spread(tip_ask, tip_bid):
-    ask_quality = Decimal(tip_ask["quality"])
-    bid_quality = Decimal(tip_bid["quality"])
+def _calculate_spread(
+    tip_ask: Dict[str, Union[str, int, CURRENCY_AMOUNT_TYPE]],
+    tip_bid: Dict[str, Union[str, int, CURRENCY_AMOUNT_TYPE]],
+) -> str:
+    """
+    Calculates the order books quoted spread.
+
+    Args:
+        tip_ask: The cheapest ask offer.
+        tip_bid: The most expensive bid offer.
+
+    Returns:
+        The spread.
+    """
+    ask_quality = Decimal(cast(str, tip_ask["quality"]))
+    bid_quality = Decimal(cast(str, tip_bid["quality"]))
     price_difference = ask_quality - bid_quality
     midpoint = (ask_quality + bid_quality) / 2
     quoted_spread = price_difference / midpoint * 100
-    return quoted_spread
+    return str(quoted_spread)
 
 
 def compute_final_order_book(
@@ -839,14 +926,26 @@ def compute_final_order_book(
     bids: ORDER_BOOK_SIDE_TYPE,
     transaction: RawTxnType,
     to_xrp: bool,
-):
+) -> Tuple[ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, Optional[str], Optional[str]]:
+    """
+    Compute the new order book.
+
+    Args:
+        asks: Ask side.
+        bids: Bid side.
+        transaction: The raw transaction.
+        to_xrp: If currency amount should be converted from drops to XRP.
+
+    Returns:
+        The new order book, exchange rate and spread.
+    """
     pair = _derive_currency_pair(asks=asks, bids=bids)
     normalized_offers = _normalize_offers(
         transaction=transaction, currency_pair=pair, to_xrp=to_xrp
     )
     exchange_rate = None
     for offer in normalized_offers:
-        offer_status = _parse_offer_status_for_final_order_book(offer=offer)
+        offer_status = _derive_offer_status_for_final_order_book(offer=offer)
         asks, bids, new_exchange_rate = _parse_final_order_book(
             asks=asks, bids=bids, offer=offer, status=offer_status, currency_pair=pair
         )
@@ -854,24 +953,48 @@ def compute_final_order_book(
             exchange_rate = new_exchange_rate
     for ask in asks:
         if to_xrp:
-            ask["TakerGets"] = _format_drops_to_xrp(amount=ask["TakerGets"])
-            ask["TakerPays"] = _format_drops_to_xrp(amount=ask["TakerPays"])
+            ask["TakerGets"] = cast(
+                CURRENCY_AMOUNT_TYPE,
+                _format_drops_to_xrp(
+                    amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"])
+                ),
+            )
+            ask["TakerPays"] = cast(
+                CURRENCY_AMOUNT_TYPE,
+                _format_drops_to_xrp(
+                    amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"])
+                ),
+            )
         ask["quality"] = _derive_quality(
-            taker_gets=ask["TakerGets"], taker_pays=ask["TakerPays"], pair=pair
+            taker_gets=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"]),
+            taker_pays=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"]),
+            pair=pair,
         )
     for bid in bids:
         if to_xrp:
-            bid["TakerGets"] = _format_drops_to_xrp(amount=bid["TakerGets"])
-            bid["TakerPays"] = _format_drops_to_xrp(amount=bid["TakerPays"])
+            bid["TakerGets"] = cast(
+                CURRENCY_AMOUNT_TYPE,
+                _format_drops_to_xrp(
+                    amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"])
+                ),
+            )
+            bid["TakerPays"] = cast(
+                CURRENCY_AMOUNT_TYPE,
+                _format_drops_to_xrp(
+                    amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"])
+                ),
+            )
         bid["quality"] = _derive_quality(
-            taker_gets=bid["TakerGets"], taker_pays=bid["TakerPays"], pair=pair
+            taker_gets=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"]),
+            taker_pays=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"]),
+            pair=pair,
         )
 
     sorted_asks = list(
-        sorted(asks, key=lambda ask: Decimal(ask["quality"]), reverse=False)
+        sorted(asks, key=lambda ask: Decimal(cast(str, ask["quality"])), reverse=False)
     )
     sorted_bids = list(
-        sorted(bids, key=lambda bid: Decimal(bid["quality"]), reverse=True)
+        sorted(bids, key=lambda bid: Decimal(cast(str, bid["quality"])), reverse=True)
     )
     quoted_spread = None
     if sorted_asks and sorted_bids:
