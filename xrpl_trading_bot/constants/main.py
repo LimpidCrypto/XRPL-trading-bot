@@ -8,3 +8,5 @@ WALLET = XRPWallet(
     seed=getpass("Enter your seed value: "),
     sequence=0,
 )
+
+LIQUID_ORDER_BOOK_LIMIT = 1
