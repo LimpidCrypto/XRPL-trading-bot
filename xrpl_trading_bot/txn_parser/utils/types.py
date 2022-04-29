@@ -9,6 +9,7 @@ from typing_extensions import Literal, TypedDict
 from xrpl.constants import XRPLException
 
 CURRENCY_AMOUNT_TYPE = Union[Dict[str, str], str]
+ORDER_BOOK_SIDE_TYPE = List[Dict[str, Union[str, int, Dict[str, str]]]]
 
 
 class MetaDataType(TypedDict):
@@ -43,13 +44,18 @@ class TransactionFieldsType(TypedDict):
 class RawTxnType(TransactionFieldsType):
     """Raw transaction data received from a tx method."""
 
+    hash: str
+    ledger_index: int
+    owner_funds: str  # for typing purposes. Not included in normal raw txn data
     meta: MetaDataType
 
 
 class SubscriptionRawTxnType(TypedDict):
     """Raw transaction data received from a subscribtion method."""
 
+    hash: str
     ledger_index: int
+    owner_funds: str
     meta: MetaDataType
     transaction: TransactionFieldsType
 
