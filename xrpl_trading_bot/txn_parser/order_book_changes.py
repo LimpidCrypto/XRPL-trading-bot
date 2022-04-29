@@ -1,7 +1,7 @@
 """Parse order book changes caused by a transaction."""
 from __future__ import annotations
 
-from typing import Any, Dict, Union, cast
+from typing import Any, Dict, Optional, Union, cast
 
 from xrpl_trading_bot.txn_parser.utils import (
     RawTxnType,
@@ -12,6 +12,10 @@ from xrpl_trading_bot.txn_parser.utils import (
     normalize_transaction,
     validate_transaction_fields,
 )
+from xrpl_trading_bot.txn_parser.utils.order_book_changes_utils import (
+    compute_final_order_book,
+)
+from xrpl_trading_bot.txn_parser.utils.types import ORDER_BOOK_SIDE_TYPE
 
 
 def parse_order_book_changes(
@@ -42,3 +46,33 @@ def parse_order_book_changes(
         result = {}
 
     return result
+
+
+def parse_final_order_book(
+    asks: ORDER_BOOK_SIDE_TYPE,
+    bids: ORDER_BOOK_SIDE_TYPE,
+    transaction: Union[RawTxnType, SubscriptionRawTxnType],
+    to_xrp: bool = False,
+) -> Dict[str, Union[ORDER_BOOK_SIDE_TYPE, Optional[str]]]:
+    """
+    Parses the new order book after a transaction affected it.
+
+    Args:
+        asks: Order books ask side.
+        bids: Order books bid side.
+        transaction: The raw transaction data.
+        to_xrp: If the currency amount should be converted from drops to XRP.
+            Defaults to False.
+
+    Returns:
+        A dictionary with the new order book, the exchange rate if an offer was
+        modified and the order books spread.
+    """
+    validate_transaction_fields(transaction_data=transaction)
+    if "transaction" in transaction:
+        transaction = cast(SubscriptionRawTxnType, transaction)
+        transaction = normalize_transaction(transaction_data=transaction)
+    asks, bids, ex_rate, spread = compute_final_order_book(
+        asks=asks, bids=bids, transaction=cast(RawTxnType, transaction), to_xrp=to_xrp
+    )
+    return {"asks": asks, "bids": bids, "exchange_rate": ex_rate, "spread": spread}
