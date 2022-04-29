@@ -21,11 +21,11 @@ ASKS = [
         "TakerPays": {
             "currency": "USD",
             "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-            "value": "855.80217"
+            "value": "855.80217",
         },
         "index": "CFF4CFB39DD62FFCF45E89AEBB128BC78C0D51D7969955D467A42DCBF0E9BF15",
         "owner_funds": "12925147440",
-        "quality": "0.0000006201465"
+        "quality": "0.0000006201465",
     }
 ]
 
@@ -45,12 +45,11 @@ BIDS = [
         "TakerGets": {
             "currency": "USD",
             "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-            "value": "520"
+            "value": "520",
         },
         "TakerPays": "1000000000",
-        "index": "2269FFC617DAAA154A261661811BE1C645BB38B8B6B3BC9739"
-        "1F63BA0B1E393A",
-        "quality": "1923076.923076923"
+        "index": "2269FFC617DAAA154A261661811BE1C645BB38B8B6B3BC9739" "1F63BA0B1E393A",
+        "quality": "1923076.923076923",
     }
 ]
 
@@ -71,11 +70,11 @@ TXN = {
                         "IndexPrevious": "0",
                         "Owner": "r3Vh9ZmQxd3C5CPEB8q7VbRuMPxwuC634n",
                         "RootIndex": "12F72282F74D437C2E76C4E57710E63779A1825D5A2090"
-                        "FF894FB9A22AF40AAE"
+                        "FF894FB9A22AF40AAE",
                     },
                     "LedgerEntryType": "DirectoryNode",
                     "LedgerIndex": "12F72282F74D437C2E76C4E57710E63779A1825D5A2090F"
-                    "F894FB9A22AF40AAE"
+                    "F894FB9A22AF40AAE",
                 }
             },
             {
@@ -95,12 +94,12 @@ TXN = {
                         "TakerPays": {
                             "currency": "USD",
                             "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                            "value": "34327.1324"
-                        }
+                            "value": "34327.1324",
+                        },
                     },
                     "LedgerEntryType": "Offer",
                     "LedgerIndex": "3AD9D4189FA00C22E7F80A99CBC417FE59F3A19924D1D0C"
-                    "50D75AC2D597F18E9"
+                    "50D75AC2D597F18E9",
                 }
             },
             {
@@ -113,11 +112,11 @@ TXN = {
                         "TakerGetsCurrency": "0000000000000000000000000000000000000000",
                         "TakerGetsIssuer": "0000000000000000000000000000000000000000",
                         "TakerPaysCurrency": "0000000000000000000000005553440000000000",
-                        "TakerPaysIssuer": "2ADB0B3959D60A6E6991F729E1918B7163925230"
+                        "TakerPaysIssuer": "2ADB0B3959D60A6E6991F729E1918B7163925230",
                     },
                     "LedgerEntryType": "DirectoryNode",
                     "LedgerIndex": "79C54A4EBD69AB2EADCE313042F36092BE432423CC6A4F784E1"
-                    "6A492D302F000"
+                    "6A492D302F000",
                 }
             },
             {
@@ -130,8 +129,8 @@ TXN = {
                         "RootIndex": "79C54A4EBD69AB2EADCE313042F36092BE432423CC6A4F784"
                         "E16A57BA7A80000",
                         "TakerPaysCurrency": "0000000000000000000000005553440000000000",
-                        "TakerPaysIssuer": "2ADB0B3959D60A6E6991F729E1918B7163925230"
-                    }
+                        "TakerPaysIssuer": "2ADB0B3959D60A6E6991F729E1918B7163925230",
+                    },
                 }
             },
             {
@@ -149,9 +148,9 @@ TXN = {
                         "TakerPays": {
                             "currency": "USD",
                             "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                            "value": "34332.5184"
-                        }
-                    }
+                            "value": "34332.5184",
+                        },
+                    },
                 }
             },
             {
@@ -161,23 +160,20 @@ TXN = {
                         "Balance": "53960109325",
                         "Flags": 0,
                         "OwnerCount": 10,
-                        "Sequence": 74738546
+                        "Sequence": 74738546,
                     },
                     "LedgerEntryType": "AccountRoot",
                     "LedgerIndex": "F709D77D5D72E0C96CB029FCE21F3AF34E70ED0D8DB121B2CF"
                     "961E64E582EEF2",
-                    "PreviousFields": {
-                        "Balance": "53960109345",
-                        "Sequence": 74738545
-                    },
+                    "PreviousFields": {"Balance": "53960109345", "Sequence": 74738545},
                     "PreviousTxnID": "215C924AC990E5807A9B0C208FCE8FFFFA62AD74F476C56B2"
                     "DA89A472D69AF91",
-                    "PreviousTxnLgrSeq": 71316521
+                    "PreviousTxnLgrSeq": 71316521,
                 }
-            }
+            },
         ],
         "TransactionIndex": 32,
-        "TransactionResult": "tesSUCCESS"
+        "TransactionResult": "tesSUCCESS",
     },
     "status": "closed",
     "transaction": {
@@ -193,7 +189,7 @@ TXN = {
         "TakerPays": {
             "currency": "USD",
             "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-            "value": "34332.5184"
+            "value": "34332.5184",
         },
         "TransactionType": "OfferCreate",
         "TxnSignature": "3045022100CC71849462CB1D4C0260EF42D9EA813244F21A2F50"
@@ -201,20 +197,17 @@ TXN = {
         "4B3EA5B10A679646376BCF",
         "date": 704557641,
         "hash": "7FAB18A8E29BDB4D0669D8F91A0A614BC1DB1CB9FB5A6E1ADAAF39E2B1843457",
-        "owner_funds": "53930109305"
+        "owner_funds": "53930109305",
     },
     "type": "transaction",
-    "validated": True
+    "validated": True,
 }
 
 
 class TestFinalOrderBookParser(TestCase):
     def test_add_offer(self: TestFinalOrderBookParser):
         actual = parse_final_order_book(
-            asks=ASKS,
-            bids=BIDS,
-            transaction=TXN,
-            to_xrp=True
+            asks=ASKS, bids=BIDS, transaction=TXN, to_xrp=True
         )
         expected = {
             "asks": [
@@ -234,12 +227,12 @@ class TestFinalOrderBookParser(TestCase):
                     "TakerPays": {
                         "currency": "USD",
                         "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                        "value": "855.80217"
+                        "value": "855.80217",
                     },
                     "index": "CFF4CFB39DD62FFCF45E89AEBB128BC78C0D51D7969955D467A42"
                     "DCBF0E9BF15",
                     "owner_funds": "12925147440",
-                    "quality": "0.620146500000"
+                    "quality": "0.620146500000",
                 },
                 {
                     "Account": "r3Vh9ZmQxd3C5CPEB8q7VbRuMPxwuC634n",
@@ -256,14 +249,14 @@ class TestFinalOrderBookParser(TestCase):
                     "TakerPays": {
                         "currency": "USD",
                         "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                        "value": "34332.5184"
+                        "value": "34332.5184",
                     },
                     "index": "C7E3B90B3731C182906181FB77C51A9CEA181E0401D39C5B1409F85"
                     "259B6E3BB",
                     "quality": "0.637440000000",
                     "LedgerEntryType": "Offer",
-                    "owner_funds": "53930.109305"
-                }
+                    "owner_funds": "53930.109305",
+                },
             ],
             "bids": [
                 {
@@ -281,15 +274,15 @@ class TestFinalOrderBookParser(TestCase):
                     "TakerGets": {
                         "currency": "USD",
                         "issuer": "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
-                        "value": "520"
+                        "value": "520",
                     },
                     "TakerPays": "1000.000000",
                     "index": "2269FFC617DAAA154A261661811BE1C645BB38B8B6B3BC97391F63BA"
                     "0B1E393A",
-                    "quality": "0.52"
+                    "quality": "0.52",
                 }
             ],
             "exchange_rate": None,
-            "spread": "17.56730385086477921916174807"
+            "spread": "17.56730385086477921916174807",
         }
         self.assertEqual(first=actual, second=expected)

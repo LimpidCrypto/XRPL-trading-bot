@@ -6,8 +6,8 @@ from xrpl_trading_bot.txn_parser.balance_changes import (
     parse_previous_balances,
 )
 from xrpl_trading_bot.txn_parser.order_book_changes import (
-    parse_order_book_changes,
     parse_final_order_book,
+    parse_order_book_changes,
 )
 from xrpl_trading_bot.txn_parser.utils import XRPLTxnFieldsException
 
