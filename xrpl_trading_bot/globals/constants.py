@@ -1,4 +1,4 @@
-"""A collection of all constants"""
+"""A collection of all global constants."""
 
 from getpass import getpass
 

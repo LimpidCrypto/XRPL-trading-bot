@@ -1,6 +1,7 @@
 """Parse order book changes caused by a transaction."""
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Dict, Optional, Union, cast
 
 from xrpl_trading_bot.txn_parser.utils import (
@@ -51,9 +52,9 @@ def parse_order_book_changes(
 def parse_final_order_book(
     asks: ORDER_BOOK_SIDE_TYPE,
     bids: ORDER_BOOK_SIDE_TYPE,
-    transaction: Union[RawTxnType, SubscriptionRawTxnType],
+    transaction: Optional[Union[RawTxnType, SubscriptionRawTxnType]],
     to_xrp: bool = False,
-) -> Dict[str, Union[ORDER_BOOK_SIDE_TYPE, Optional[str]]]:
+) -> Dict[str, Union[ORDER_BOOK_SIDE_TYPE, str, Optional[Decimal]]]:
     """
     Parses the new order book after a transaction affected it.
 
@@ -65,14 +66,24 @@ def parse_final_order_book(
             Defaults to False.
 
     Returns:
-        A dictionary with the new order book, the exchange rate if an offer was
-        modified and the order books spread.
+        A dictionary with the new order book, the currency pair,
+        the exchange rate if an offer was modified and the order books spread.
     """
-    validate_transaction_fields(transaction_data=transaction)
-    if "transaction" in transaction:
-        transaction = cast(SubscriptionRawTxnType, transaction)
-        transaction = normalize_transaction(transaction_data=transaction)
-    asks, bids, ex_rate, spread = compute_final_order_book(
-        asks=asks, bids=bids, transaction=cast(RawTxnType, transaction), to_xrp=to_xrp
+    if transaction is not None:
+        validate_transaction_fields(transaction_data=transaction)
+        if "transaction" in transaction:
+            transaction = cast(SubscriptionRawTxnType, transaction)
+            transaction = normalize_transaction(transaction_data=transaction)
+    asks, bids, pair, ex_rate, spread = compute_final_order_book(
+        asks=asks,
+        bids=bids,
+        transaction=cast(Optional[RawTxnType], transaction),
+        to_xrp=to_xrp,
     )
-    return {"asks": asks, "bids": bids, "exchange_rate": ex_rate, "spread": spread}
+    return {
+        "asks": asks,
+        "bids": bids,
+        "currency_pair": pair,
+        "exchange_rate": Decimal(ex_rate) if ex_rate is not None else ex_rate,
+        "spread": Decimal(spread) if spread is not None else spread,
+    }
