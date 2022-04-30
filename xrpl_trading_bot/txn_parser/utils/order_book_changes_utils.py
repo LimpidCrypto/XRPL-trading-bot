@@ -721,9 +721,7 @@ def _normalize_offers(
     ]
 
 
-def _derive_currency_pair(
-    asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE
-) -> str:
+def derive_currency_pair(asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE) -> str:
     """
     Derives the currency pair from an order book.
 
@@ -917,16 +915,18 @@ def _calculate_spread(
     bid_quality = Decimal(cast(str, tip_bid["quality"]))
     price_difference = ask_quality - bid_quality
     midpoint = (ask_quality + bid_quality) / 2
-    quoted_spread = price_difference / midpoint * 100
+    quoted_spread = (price_difference / midpoint) * 100
     return str(quoted_spread)
 
 
 def compute_final_order_book(
     asks: ORDER_BOOK_SIDE_TYPE,
     bids: ORDER_BOOK_SIDE_TYPE,
-    transaction: RawTxnType,
+    transaction: Optional[RawTxnType],
     to_xrp: bool,
-) -> Tuple[ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, Optional[str], Optional[str]]:
+) -> Tuple[
+    ORDER_BOOK_SIDE_TYPE, ORDER_BOOK_SIDE_TYPE, str, Optional[str], Optional[str]
+]:
     """
     Compute the new order book.
 
@@ -937,20 +937,26 @@ def compute_final_order_book(
         to_xrp: If currency amount should be converted from drops to XRP.
 
     Returns:
-        The new order book, exchange rate and spread.
+        The new order book, currency pair, exchange rate and spread.
     """
-    pair = _derive_currency_pair(asks=asks, bids=bids)
-    normalized_offers = _normalize_offers(
-        transaction=transaction, currency_pair=pair, to_xrp=to_xrp
-    )
+    pair = derive_currency_pair(asks=asks, bids=bids)
     exchange_rate = None
-    for offer in normalized_offers:
-        offer_status = _derive_offer_status_for_final_order_book(offer=offer)
-        asks, bids, new_exchange_rate = _parse_final_order_book(
-            asks=asks, bids=bids, offer=offer, status=offer_status, currency_pair=pair
+    quoted_spread = None
+    if transaction is not None:
+        normalized_offers = _normalize_offers(
+            transaction=transaction, currency_pair=pair, to_xrp=to_xrp
         )
-        if new_exchange_rate is not None:
-            exchange_rate = new_exchange_rate
+        for offer in normalized_offers:
+            offer_status = _derive_offer_status_for_final_order_book(offer=offer)
+            asks, bids, new_exchange_rate = _parse_final_order_book(
+                asks=asks,
+                bids=bids,
+                offer=offer,
+                status=offer_status,
+                currency_pair=pair,
+            )
+            if new_exchange_rate is not None:
+                exchange_rate = new_exchange_rate
     for ask in asks:
         if to_xrp:
             ask["TakerGets"] = cast(
@@ -989,16 +995,14 @@ def compute_final_order_book(
             taker_pays=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"]),
             pair=pair,
         )
-
     sorted_asks = list(
         sorted(asks, key=lambda ask: Decimal(cast(str, ask["quality"])), reverse=False)
     )
     sorted_bids = list(
         sorted(bids, key=lambda bid: Decimal(cast(str, bid["quality"])), reverse=True)
     )
-    quoted_spread = None
     if sorted_asks and sorted_bids:
         quoted_spread = _calculate_spread(
             tip_ask=sorted_asks[0], tip_bid=sorted_bids[0]
         )
-    return (sorted_asks, sorted_bids, exchange_rate, quoted_spread)
+    return (sorted_asks, sorted_bids, pair, exchange_rate, quoted_spread)

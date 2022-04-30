@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from unittest import TestCase
 
 from xrpl_trading_bot.txn_parser import parse_final_order_book
@@ -282,7 +283,8 @@ class TestFinalOrderBookParser(TestCase):
                     "quality": "0.52",
                 }
             ],
+            "currency_pair": "XRP/USD.rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq",
             "exchange_rate": None,
-            "spread": "17.56730385086477921916174807",
+            "spread": Decimal("17.56730385086477921916174807"),
         }
         self.assertEqual(first=actual, second=expected)
