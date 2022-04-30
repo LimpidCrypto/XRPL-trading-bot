@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, cast
+from typing import Any, Dict, List, cast
 
-from xrpl_trading_bot.constants import LIQUID_ORDER_BOOK_LIMIT
 from xrpl_trading_bot.txn_parser.utils.types import ORDER_BOOK_SIDE_TYPE
+
+LIQUID_ORDER_BOOK_LIMIT = 1
 
 
 class OrderBookNotFoundException(BaseException):
@@ -37,6 +38,16 @@ class OrderBook:
         """
         return self.spread < LIQUID_ORDER_BOOK_LIMIT
 
+    @classmethod
+    def from_parser_result(cls, result: Dict[str, Any]) -> OrderBook:
+        return cls(
+            asks=result["asks"],
+            bids=result["bids"],
+            currency_pair=result["currency_pair"],
+            exchange_rate=result["exchange_rate"],
+            spread=result["spread"],
+        )
+
 
 class OrderBooks:
     def set_order_book(self: OrderBooks, order_book: OrderBook) -> None:
@@ -46,6 +57,17 @@ class OrderBooks:
         Args:
             order_book: The order book.
         """
+        new_exchange_rate = order_book.exchange_rate
+        try:
+            current_exchange_rate = self.get_order_book(
+                currency_pair=order_book.currency_pair
+            ).exchange_rate
+        except OrderBookNotFoundException:
+            current_exchange_rate = None
+        if new_exchange_rate is not None:
+            pass
+        else:
+            order_book.exchange_rate = current_exchange_rate
         self.__setattr__(order_book.currency_pair, order_book)
 
     def get_order_book(self: OrderBooks, currency_pair: str) -> OrderBook:
@@ -80,6 +102,9 @@ class OrderBooks:
             self.__getattribute__(currency_pair)
             for currency_pair in self.__dict__.keys()
         ]
+
+    def get_all_currency_pairs(self: OrderBooks) -> List[str]:
+        return list(self.__dict__.keys())
 
     def get_liquid_order_books(self: OrderBooks) -> List[OrderBook]:
         """
