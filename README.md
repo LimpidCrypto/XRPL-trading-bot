@@ -1,5 +1,5 @@
 # Warning 🚨
-This repository is in active development and is not working yet. The bot currently requires you to put in your seed value via terminal.
+**This repository is in active development and is not working yet**. The bot currently requires you to put in your seed value via terminal.
 It is planned to use the Tangem wallet in the future so you will never be required to give away your secrets. At the current stage I would never use a bot like this, even if it should work! 
 ```diff
 - NEVER GIVE AWAY YOUR SECRETS!!!
