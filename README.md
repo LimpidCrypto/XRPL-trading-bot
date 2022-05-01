@@ -19,13 +19,13 @@ A trading bot that uses the decentralized exchange of the XRP Ledger. It uses ar
 
 ### 💱 Arbitrage Trading
 The arbitrage trading bot takes advantage of the price differences in different liquid order books to make profit.
-##### Types
+##### Types:
 | [Basic Spatial Arbitrage](https://en.wikipedia.org/wiki/Arbitrage#Spatial_arbitrage)       | [Triangular Arbitrage](https://en.wikipedia.org/wiki/Triangular_arbitrage)          |
 | ----------------------------- | ----------------------------- |
 | 1. Order: USD.*r1* > BTC.*r1* | 1. Order: USD.*r1* > BTC.*r1* |
 | 2. Order: BTC.*r2* > USD.*r2* | 2. Order: BTC.*r2* > ETH.*r1* |
 |                               | 3. Order: ETH.*r2* > USD.*r2* |
-##### Example
+##### Example:
 The bot places an immediate or cancel offer that trades 10 USD.r1 for 9 EUR.r1. The bot then places a second immediate or cancel offer that trades 9 EUR.r2 for 11 USD.r2. The profit for this trade is 1 USD. Neither the `TakerGets` nor the `TakerPays` issuers have to be the same for both trades. All four issuers can be completely different. Doing so brings the most flexibility.
 <br>The bot only trades liquid order books and adjusts all `Offer` values from the lowest `TakerGets` balance.
 
