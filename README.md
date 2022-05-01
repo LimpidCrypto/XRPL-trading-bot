@@ -5,6 +5,19 @@ It is planned to use the Tangem wallet in the future so you will never be requir
 - NEVER GIVE AWAY YOUR SECRETS!!!
 ```
 
+## Main tasks:
+- [ ] Get it running
+  - - [ ] Build trading paths
+    - - [ ] Spatial Arbitrage
+    - - [ ] Triangular Arbitrage
+    - - [ ] Market Maker
+  - [ ] Determine which trade would be the most profitable
+  - [ ] Build `OfferCreate` transactions
+  - [ ] Sign transactions
+  - [ ] Submit transactions
+- [ ] Add support for Tangem wallet
+- [ ] First release
+
 # XRPL-trading-bot
 A trading bot that uses the decentralized exchange of the XRP Ledger. It uses arbitrage trading and market making to make profit.
 
