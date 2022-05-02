@@ -116,6 +116,7 @@ Receive a message every time a transaction affects the given order book. This me
 </details>
 <details><summary>9. Derive new order books on every new transaction</summary>
 <p>
+
 Everytime the bot receives a new message (described in step 4) that a transaction affected an order book. The bot takes the transaction and the affected order book to see how the transaction changed the order book. It then parses the final state of the order book. To do this it uses the [`parse_final_order_book`](https://github.com/LimpidCrypto/XRPL-trading-bot/blob/main/xrpl_trading_bot/txn_parser/order_book_changes.py#L52) parser.
 
 </p>
