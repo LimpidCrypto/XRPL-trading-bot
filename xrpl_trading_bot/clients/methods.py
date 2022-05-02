@@ -93,7 +93,7 @@ def subscribe_to_order_books(
         all_order_books:
             All order books.
         subscribe_books:
-            Max. 10 subscribe books.
+            Max. 10 SubscribeBook objects.
     """
     assert len(subscribe_books) <= 10
     responses = run(
@@ -135,24 +135,21 @@ def subscribe_to_order_books(
     with WebsocketClient(url=NonFullHistoryNodes.LIMPIDCRYPTO) as client:
         client.send(Subscribe(books=subscribe_books))
         for message in client:
-            try:
-                # This client should receive every transaction without snapshot.
-                if is_order_book(message=message):
-                    continue
-                else:
-                    for currency_pair in all_subscription_book_currency_pairs:
-                        order_book = all_order_books.get_order_book(
-                            currency_pair=currency_pair
-                        )
-                        all_order_books.set_order_book(
-                            order_book=OrderBook.from_parser_result(
-                                result=parse_final_order_book(
-                                    asks=order_book.asks,
-                                    bids=order_book.bids,
-                                    transaction=cast(SubscriptionRawTxnType, message),
-                                    to_xrp=True,
-                                )
+            if is_order_book(message=message):
+                continue
+            else:
+                for currency_pair in all_subscription_book_currency_pairs:
+                    order_book = all_order_books.get_order_book(
+                        currency_pair=currency_pair
+                    )
+                    all_order_books.set_order_book(
+                        order_book=OrderBook.from_parser_result(
+                            result=parse_final_order_book(
+                                asks=order_book.asks,
+                                bids=order_book.bids,
+                                transaction=cast(SubscriptionRawTxnType, message),
+                                to_xrp=True,
                             )
                         )
-            except ConnectionClosedError:
-                return None
+                    )
+    return None
