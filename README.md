@@ -126,23 +126,37 @@ Everytime the bot receives a new message (described in step 4) that a transactio
 
 You could say that the decentralized exchange of the XRP Ledger is nothing more than a collection of limit orders. Orders are called [`Offers`](https://xrpl.org/offers.html#offers) on the XRP Ledger. Every time the user wants to trade a currency against another he needs to find another participant, who wants to trade the exact same currencies in the other direction, at the same or better exchange rate. For Examlple:
 <br>Person A is willing to pay 10.70 USD in order to receive 10 EUR. To let everybody know he is willing to so he submits an [`OfferCreate`](https://xrpl.org/offercreate.html) transaction to the network. This transaction creates an [`Offer`](https://xrpl.org/offer.html#offer) object on the XRP Ledger which everybody in the network is able to see. Now Person B comes into play. Person B sees that offer of Person A and wants to trade it. So Person B is willing to pay 10 EUR in order to receive 10.70 USD. Person B now submits a `OfferCreate` transaction just as Person A did before. Because both `Offers` have the same exchange rate they are consuming each other. Person A gets 10 EUR from Person B and Person B gets 10.70 USD from Person A.
-<br><br>You can imagine that the trading bot is Person B. The bot is constantly searching for `Offers` which combined will result in profit due to price differences. If the bot combine and compare two or more `Offers` with each other this is called a *trade path*.
+<br><br>You can imagine that the trading bot is Person B. The bot is constantly searching for `Offers` which combined will result in profit due to price differences. If the bot combine to compare two or more `Offers` with each other this is called a *trade path*.
 <br><br>
+## Examples
+### Spatial arbitrage trading
+#### Soon
+### Triangular arbitrage trading
+#### Soon
+### Market maker
+#### Soon
 
 </p>
 </details>
 <details><summary>10.5. Adjust values for each trade path</summary>
 <p>
 
+#### Soon
+
 </p>
 </details>
-<details><summary>11. Calulate the profit of each trade path</summary>
+<details><summary>11. Calulate the numeric and percentage profit/loss of each trade path</summary>
 <p>
+
+last trade TakerPays amount - first trade TakerGets amount = numeric profit/loss
+(1 - (last trade TakerPays amount - first trade TakerGets amount) / first trade TakerGets amount) * 100 = percentage profit/loss
 
 </p>
 </details>
 <details><summary>12. Filter for the profitable trade paths</summary>
 <p>
+
+Filter for positive numeric profit and sort by percentage profit, so the most profitable paths get executed first.
 
 </p>
 </details>
