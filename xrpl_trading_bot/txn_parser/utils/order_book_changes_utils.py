@@ -621,7 +621,6 @@ def _normalize_offer(
     ],
     new_prev_txn_id: str,
     new_prev_txn_lgr_seq: int,
-    pair: str,
     to_xrp: bool,
     owner_funds: Optional[str] = None,
 ) -> NormalizedOffer:
@@ -646,13 +645,7 @@ def _normalize_offer(
     assert diff_type in ["CreatedNode", "ModifiedNode", "DeletedNode"]
     taker_gets = _derive_field(node=offer, field_name="TakerGets", to_xrp=to_xrp)
     taker_pays = _derive_field(node=offer, field_name="TakerPays", to_xrp=to_xrp)
-    quality = str(
-        _derive_quality(
-            taker_gets=taker_gets,
-            taker_pays=taker_pays,
-            pair=pair,
-        )
-    )
+    quality = "0"
     if to_xrp and owner_funds is not None:
         owner_funds = _format_drops_to_xrp(amount=owner_funds)  # type: ignore
     taker_gets_funded, taker_pays_funded = (
@@ -685,7 +678,6 @@ def _normalize_offer(
 
 def _normalize_offers(
     transaction: Union[RawTxnType, SubscriptionRawTxnType],
-    currency_pair: str,
     to_xrp: bool,
 ) -> List[NormalizedOffer]:
     """
@@ -711,7 +703,6 @@ def _normalize_offers(
             offer=offer,
             new_prev_txn_id=hash,
             new_prev_txn_lgr_seq=ledger_index,
-            pair=currency_pair,
             to_xrp=to_xrp,
             owner_funds=transaction["owner_funds"]
             if "owner_funds" in transaction
@@ -760,6 +751,18 @@ def derive_currency_pair(asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE)
         return f"{base}/{counter}"
     else:
         raise XRPLException("Cannot derive currency pair because order book is empty.")
+
+
+def _derive_currency_pair(offer: NormalizedOffer):
+    taker_pays = offer.TakerPays
+    taker_gets = offer.TakerGets
+    base = f"{taker_pays['currency']}.{taker_pays['issuer']}" if (
+        isinstance(taker_pays, dict)
+    ) else "XRP"
+    counter = f"{taker_gets['currency']}.{taker_gets['issuer']}" if (
+        isinstance(taker_gets, dict)
+    ) else "XRP"
+    return f"{base}/{counter}"
 
 
 def _derive_offer_status_for_final_order_book(
@@ -882,6 +885,7 @@ def _parse_final_order_book(
     )
     offer_currency_pair = f"{base_currency}/{counter_currency}"
     new_exchange_rate = None
+    # if the offer is an offer that affected the wanted order book.
     if base_currency in currency_pair and counter_currency in currency_pair:
         # if flipped currency pair
         if currency_pair != offer_currency_pair:
@@ -920,8 +924,7 @@ def _calculate_spread(
 
 
 def compute_final_order_book(
-    asks: ORDER_BOOK_SIDE_TYPE,
-    bids: ORDER_BOOK_SIDE_TYPE,
+    all_order_books,
     transaction: Optional[RawTxnType],
     to_xrp: bool,
 ) -> Tuple[
@@ -939,70 +942,84 @@ def compute_final_order_book(
     Returns:
         The new order book, currency pair, exchange rate and spread.
     """
-    pair = derive_currency_pair(asks=asks, bids=bids)
-    exchange_rate = None
-    quoted_spread = None
     if transaction is not None:
         normalized_offers = _normalize_offers(
-            transaction=transaction, currency_pair=pair, to_xrp=to_xrp
+            transaction=transaction, to_xrp=to_xrp
         )
         for offer in normalized_offers:
             offer_status = _derive_offer_status_for_final_order_book(offer=offer)
+            currency_pair = _derive_currency_pair(offer=offer)
+            try:
+                order_book = all_order_books.get_order_book(currency_pair=currency_pair)
+                currency_pair = order_book.currency_pair
+            except AttributeError:
+                continue
+            asks = order_book.asks
+            bids = order_book.bids
             asks, bids, new_exchange_rate = _parse_final_order_book(
                 asks=asks,
                 bids=bids,
                 offer=offer,
                 status=offer_status,
-                currency_pair=pair,
+                currency_pair=currency_pair,
             )
             if new_exchange_rate is not None:
-                exchange_rate = new_exchange_rate
-    for ask in asks:
-        if to_xrp:
-            ask["TakerGets"] = cast(
-                CURRENCY_AMOUNT_TYPE,
-                _format_drops_to_xrp(
-                    amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"])
-                ),
+                order_book.exchange_rate = new_exchange_rate
+    for book in all_order_books.get_all_order_books():
+        for ask in book.asks:
+            if to_xrp:
+                ask["TakerGets"] = cast(
+                    CURRENCY_AMOUNT_TYPE,
+                    _format_drops_to_xrp(
+                        amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"])
+                    ),
+                )
+                ask["TakerPays"] = cast(
+                    CURRENCY_AMOUNT_TYPE,
+                    _format_drops_to_xrp(
+                        amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"])
+                    ),
+                )
+            ask["quality"] = _derive_quality(
+                taker_gets=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"]),
+                taker_pays=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"]),
+                pair=book.currency_pair,
             )
-            ask["TakerPays"] = cast(
-                CURRENCY_AMOUNT_TYPE,
-                _format_drops_to_xrp(
-                    amount=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"])
-                ),
+        for bid in book.bids:
+            if to_xrp:
+                bid["TakerGets"] = cast(
+                    CURRENCY_AMOUNT_TYPE,
+                    _format_drops_to_xrp(
+                        amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"])
+                    ),
+                )
+                bid["TakerPays"] = cast(
+                    CURRENCY_AMOUNT_TYPE,
+                    _format_drops_to_xrp(
+                        amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"])
+                    ),
+                )
+            bid["quality"] = _derive_quality(
+                taker_gets=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"]),
+                taker_pays=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"]),
+                pair=book.currency_pair,
             )
-        ask["quality"] = _derive_quality(
-            taker_gets=cast(CURRENCY_AMOUNT_TYPE, ask["TakerGets"]),
-            taker_pays=cast(CURRENCY_AMOUNT_TYPE, ask["TakerPays"]),
-            pair=pair,
+        book.asks = list(
+            sorted(
+                book.asks,
+                key=lambda ask: Decimal(cast(str, ask["quality"])),
+                reverse=False
+            )
         )
-    for bid in bids:
-        if to_xrp:
-            bid["TakerGets"] = cast(
-                CURRENCY_AMOUNT_TYPE,
-                _format_drops_to_xrp(
-                    amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"])
-                ),
+        book.bids = list(
+            sorted(
+                book.bids,
+                key=lambda bid: Decimal(cast(str, bid["quality"])),
+                reverse=True
             )
-            bid["TakerPays"] = cast(
-                CURRENCY_AMOUNT_TYPE,
-                _format_drops_to_xrp(
-                    amount=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"])
-                ),
-            )
-        bid["quality"] = _derive_quality(
-            taker_gets=cast(CURRENCY_AMOUNT_TYPE, bid["TakerGets"]),
-            taker_pays=cast(CURRENCY_AMOUNT_TYPE, bid["TakerPays"]),
-            pair=pair,
         )
-    sorted_asks = list(
-        sorted(asks, key=lambda ask: Decimal(cast(str, ask["quality"])), reverse=False)
-    )
-    sorted_bids = list(
-        sorted(bids, key=lambda bid: Decimal(cast(str, bid["quality"])), reverse=True)
-    )
-    if sorted_asks and sorted_bids:
-        quoted_spread = _calculate_spread(
-            tip_ask=sorted_asks[0], tip_bid=sorted_bids[0]
-        )
-    return (sorted_asks, sorted_bids, pair, exchange_rate, quoted_spread)
+        if book.asks and book.bids:
+            book.spread = Decimal(_calculate_spread(
+                tip_ask=book.asks[0], tip_bid=book.bids[0]
+            ))
+    # return (sorted_asks, sorted_bids, pair, exchange_rate, quoted_spread)

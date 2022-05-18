@@ -50,8 +50,7 @@ def parse_order_book_changes(
 
 
 def parse_final_order_book(
-    asks: ORDER_BOOK_SIDE_TYPE,
-    bids: ORDER_BOOK_SIDE_TYPE,
+    all_order_books,
     transaction: Optional[Union[RawTxnType, SubscriptionRawTxnType]],
     to_xrp: bool = False,
 ) -> Dict[str, Union[ORDER_BOOK_SIDE_TYPE, str, Optional[Decimal]]]:
@@ -74,16 +73,9 @@ def parse_final_order_book(
         if "transaction" in transaction:
             transaction = cast(SubscriptionRawTxnType, transaction)
             transaction = normalize_transaction(transaction_data=transaction)
-    asks, bids, pair, ex_rate, spread = compute_final_order_book(
-        asks=asks,
-        bids=bids,
+    compute_final_order_book(
+        all_order_books=all_order_books,
         transaction=cast(Optional[RawTxnType], transaction),
         to_xrp=to_xrp,
     )
-    return {
-        "asks": asks,
-        "bids": bids,
-        "currency_pair": pair,
-        "exchange_rate": Decimal(ex_rate) if ex_rate is not None else ex_rate,
-        "spread": Decimal(spread) if spread is not None else spread,
-    }
+    # print(all_order_books.__dict__)

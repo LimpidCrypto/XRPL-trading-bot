@@ -9,13 +9,13 @@ def build_trading_paths(wallet: XRPWallet, order_books: OrderBooks):
     liquid_order_books = order_books.get_liquid_order_books()
     illiquid_order_books = order_books.get_illiquid_order_books()
 
-    paths = set()
+    paths = []
 
-    paths.update(
+    paths.extend(
         build_spatial_arbitrage_trading_paths(
             liquid_order_books=liquid_order_books,
             wallet=wallet
         )
     )
 
-    return paths
+    return tuple(paths)
