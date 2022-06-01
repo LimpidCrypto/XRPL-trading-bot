@@ -4,7 +4,7 @@ from typing import Dict, List, cast
 
 from websockets.exceptions import ConnectionClosedError
 from xrpl.clients import WebsocketClient
-from xrpl.models import AccountInfo, AccountLines, IssuedCurrency, Subscribe
+from xrpl.models import AccountInfo, AccountLines, IssuedCurrency, Response, Subscribe
 from xrpl.models.requests.subscribe import SubscribeBook
 from xrpl.utils import drops_to_xrp
 
@@ -14,6 +14,8 @@ from xrpl_trading_bot.clients.websocket_uri import FullHistoryNodes, NonFullHist
 from xrpl_trading_bot.order_books import OrderBook, OrderBooks
 from xrpl_trading_bot.txn_parser import SubscriptionRawTxnType, parse_final_balances
 from xrpl_trading_bot.wallet import XRPWallet
+
+TRANSFER_FEE_PRECISION = 1000000000
 
 
 def get_current_account_balances(wallet: XRPWallet) -> None:
@@ -173,3 +175,20 @@ def subscribe_to_order_books(
                     cast(SubscriptionRawTxnType, message)
                 )
     return subscribe_books
+
+
+def get_gateway_fees(wallet: XRPWallet) -> Dict[str, Decimal]:
+    balances = wallet.balances
+    currencies = balances.keys()
+    issuers = [currency.split(".")[1] for currency in currencies if currency != "XRP"]
+    account_infos: List[Response] = run(
+        xrp_request_async([AccountInfo(account=issuer) for issuer in issuers])
+    )
+    transfer_rates: Dict[str, Decimal] = {}
+    for info in account_infos:
+        transfer_rate = info.result["account_data"].get("TransferRate")
+        transfer_rates[info.result["account_data"]["Account"]] = (
+            Decimal(transfer_rate) if transfer_rate is not None else Decimal(0)
+        ) / TRANSFER_FEE_PRECISION
+
+    return transfer_rates

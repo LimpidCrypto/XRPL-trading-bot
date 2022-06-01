@@ -10,7 +10,8 @@ from xrpl_trading_bot.clients import (
     subscribe_to_account_balances,
     subscribe_to_order_books,
 )
-from xrpl_trading_bot.globals import WALLET, all_order_books
+from xrpl_trading_bot.clients.methods import get_gateway_fees
+from xrpl_trading_bot.globals import WALLET, all_order_books, gateway_fees
 from xrpl_trading_bot.order_books import build_subscription_books
 
 if __name__ == "__main__":
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     )
     balances_subscribtion.start()
     sleep(5)
+    gateway_fees.update(get_gateway_fees(wallet=WALLET))
     subscribe_books = build_subscription_books(wallet=WALLET)
     subscribe_book_threads: List[Thread] = [
         Thread(
