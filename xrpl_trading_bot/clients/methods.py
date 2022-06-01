@@ -177,7 +177,7 @@ def subscribe_to_order_books(
     return subscribe_books
 
 
-def get_gateway_fees(wallet: XRPWallet):
+def get_gateway_fees(wallet: XRPWallet) -> Dict[str, Decimal]:
     balances = wallet.balances
     currencies = balances.keys()
     issuers = [currency.split(".")[1] for currency in currencies if currency != "XRP"]
