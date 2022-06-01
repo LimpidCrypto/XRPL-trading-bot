@@ -76,6 +76,10 @@ class ChangeAmount:
         self.previous_value = previous_value
 
 
+class XRPLOrderBookEmptyException(XRPLException):
+    pass
+
+
 def group_by_address_order_book(
     order_changes: List[Dict[str, Union[Dict[str, str], bool, int, str]]]
 ) -> Dict[
@@ -759,7 +763,9 @@ def derive_currency_pair(asks: ORDER_BOOK_SIDE_TYPE, bids: ORDER_BOOK_SIDE_TYPE)
         )
         return f"{base}/{counter}"
     else:
-        raise XRPLException("Cannot derive currency pair because order book is empty.")
+        raise XRPLOrderBookEmptyException(
+            "Cannot derive currency pair because order book is empty."
+        )
 
 
 def _derive_offer_status_for_final_order_book(

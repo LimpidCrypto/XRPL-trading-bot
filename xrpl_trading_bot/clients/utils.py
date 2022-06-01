@@ -3,7 +3,7 @@
 from typing import Any, Dict
 
 
-def is_order_book(message: Dict[str, Any]) -> bool:
+def _is_order_book(message: Dict[str, Any]) -> bool:
     """
     Checks if the received message was an order book.
 
