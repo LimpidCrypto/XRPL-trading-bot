@@ -1,11 +1,20 @@
 from asyncio import run
 from decimal import Decimal
-from typing import Dict, List, cast
+from typing import Dict, Generator, List, cast
 
 from websockets.exceptions import ConnectionClosedError
 from xrpl.clients import WebsocketClient
-from xrpl.models import AccountInfo, AccountLines, IssuedCurrency, Response, Subscribe
-from xrpl.models.requests.subscribe import SubscribeBook
+from xrpl.models import (
+    AccountInfo,
+    AccountLines,
+    IssuedCurrency,
+    IssuedCurrencyAmount,
+    PathFind,
+    PathFindSubcommand,
+    Response,
+    Subscribe,
+    SubscribeBook
+)
 from xrpl.utils import drops_to_xrp
 
 from xrpl_trading_bot.clients.main import xrp_request_async
@@ -175,6 +184,66 @@ def subscribe_to_order_books(
                     cast(SubscriptionRawTxnType, message)
                 )
     return subscribe_books
+
+
+def subscribe_to_payment_paths(path_finds: List[PathFind], all_payment_paths):
+    with WebsocketClient(FullHistoryNodes.XRPLF) as client:
+        for path_find in path_finds:
+            client.send(path_find)
+        for message in client:
+            result = message.get("result")
+            if result is not None:
+                destination_amount = result["destination_amount"]
+                alternatives = result["alternatives"]
+            else:
+                destination_amount = message["destination_amount"]
+                alternatives = message["alternatives"]
+            currency_id = (
+                f"{destination_amount['currency']}.{destination_amount['issuer']}"
+            ) if isinstance(destination_amount, dict) else "XRP"
+            all_payment_paths[currency_id] = {
+                "value": destination_amount["value"] if (
+                    isinstance(destination_amount, dict)
+                ) else destination_amount,
+                "alternatives": alternatives,
+            }
+
+
+def _chunk_path_finds(
+    path_finds: List[PathFind],
+) -> Generator[List[PathFind], None, None]:
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(path_finds), 5):
+        yield path_finds[i : i + 5]
+
+
+def build_path_finds(wallet: XRPWallet) -> List[List[PathFind]]:
+    path_finds = [
+        PathFind(
+            subcommand=PathFindSubcommand.CREATE,
+            source_account=wallet.classic_address,
+            destination_account=wallet.classic_address,
+            destination_amount="-1",
+        ),
+    ]
+    tokens = [
+        currency for currency in wallet.balances.keys() if currency != "XRP"
+    ]
+    for token in tokens:
+        currency, issuer = token.split(".")
+        path_finds.append(
+            PathFind(
+                subcommand=PathFindSubcommand.CREATE,
+                source_account=wallet.classic_address,
+                destination_account=wallet.classic_address,
+                destination_amount=IssuedCurrencyAmount(
+                    currency=currency,
+                    issuer=issuer,
+                    value=-1,
+                ),
+            )
+        )
+    return [list(pf) for pf in _chunk_path_finds(path_finds)]
 
 
 def get_gateway_fees(wallet: XRPWallet) -> Dict[str, Decimal]:

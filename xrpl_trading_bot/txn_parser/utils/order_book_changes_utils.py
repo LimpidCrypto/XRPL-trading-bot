@@ -558,9 +558,9 @@ def _derive_quality(
 
     quality = Decimal(taker_gets_value) / Decimal(taker_pays_value)
     if possible_currency_pair != pair:
-        return _format_quality("{:.12}".format(1 / quality))
+        return _format_quality("{:.14}".format(1 / quality))
 
-    return _format_quality("{:.12}".format(quality))
+    return _format_quality("{:.14}".format(quality))
 
 
 def _derive_unfunded_amounts(
