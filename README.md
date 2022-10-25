@@ -1,5 +1,6 @@
 # **ARCHIVED**
 This repo is archived. Some day it will come back better :)
+Keep an eye on https://github.com/LimpidCrypto/xrpl-trading 👀
 
 
 # Warning 🚨
